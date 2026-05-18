@@ -1,0 +1,6 @@
+{
+  "name": "Digital Terrarium",
+  "description": "A relaxing, procedurally generated garden and lo-fi lounge experience.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
