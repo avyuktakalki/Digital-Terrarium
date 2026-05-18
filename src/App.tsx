@@ -16,8 +16,9 @@ import {
 
 interface Plant {
   id: number;
-  type: 'succulent' | 'fern' | 'mushroom';
+  type: 'succulent' | 'fern' | 'mushroom' | 'bonsai' | 'vine';
   x: number;
+  y?: number;
   scale: number;
   rotation: number;
   color: string;
@@ -54,23 +55,35 @@ const TRACKS: Track[] = [
 const getRandomRange = (min: number, max: number) => Math.random() * (max - min) + min;
 
 const generatePlants = (count: number): Plant[] => {
-  const types: ('succulent' | 'fern' | 'mushroom')[] = ['succulent', 'fern', 'mushroom'];
+  const types: ('succulent' | 'fern' | 'mushroom' | 'bonsai' | 'vine')[] = ['succulent', 'fern', 'mushroom', 'bonsai', 'vine'];
   const colors = [
     '#6b8e23', '#8fbc8f', '#556b2f', // Greens
     '#cd5c5c', '#d2691e', '#f4a460', // Terracotta / Earth
-    '#e9967a', '#deb887', '#bc8f8f'  // Soft tones
+    '#e9967a', '#deb887', '#bc8f8f', // Soft tones
+    '#a0522d', '#556b2f', '#4682b4'  // More variety
   ];
 
-  return Array.from({ length: count }, (_, i) => ({
-    id: Math.random(),
-    type: types[Math.floor(Math.random() * types.length)],
-    x: getRandomRange(100, 400),
-    scale: getRandomRange(0.6, 1.2),
-    rotation: getRandomRange(-10, 10),
-    color: colors[Math.floor(Math.random() * colors.length)],
-    leafCount: Math.floor(getRandomRange(4, 12)),
-    height: getRandomRange(20, 60),
-  })).sort((a, b) => a.id - b.id);
+  return Array.from({ length: count }, (_, i) => {
+    const type = types[Math.floor(Math.random() * types.length)];
+    const x = getRandomRange(100, 400);
+    let y = 425; // Default ground level
+    
+    if (type === 'vine') {
+      y = getRandomRange(150, 300); // Vines can start higher
+    }
+
+    return {
+      id: Math.random(),
+      type,
+      x,
+      y,
+      scale: getRandomRange(0.6, 1.2),
+      rotation: getRandomRange(-10, 10),
+      color: colors[Math.floor(Math.random() * colors.length)],
+      leafCount: Math.floor(getRandomRange(4, 12)),
+      height: getRandomRange(20, 60),
+    };
+  }).sort((a, b) => a.id - b.id);
 };
 
 // --- Components ---
@@ -110,20 +123,23 @@ export default function App() {
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(0.5);
-  const [bgGradient, setBgGradient] = useState('');
+  const [overrideHour, setOverrideHour] = useState<number | null>(null);
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Initialize environment and plants
+  const hour = overrideHour !== null ? overrideHour : new Date().getHours();
+
+  const getBgGradient = (h: number) => {
+    if (h >= 5 && h < 8) return 'from-orange-200 via-rose-300 to-indigo-400'; // Sunrise
+    if (h >= 8 && h < 17) return 'from-sky-300 via-blue-200 to-blue-400'; // Midday
+    if (h >= 17 && h < 20) return 'from-orange-400 via-red-300 to-indigo-900'; // Sunset
+    return 'from-slate-900 via-indigo-950 to-black'; // Night
+  };
+
+  const bgGradient = getBgGradient(hour);
+
   useEffect(() => {
-    setPlants(generatePlants(8));
-    
-    // Set time-based gradient
-    const hour = new Date().getHours();
-    if (hour >= 5 && hour < 8) setBgGradient('from-orange-200 via-rose-300 to-indigo-400'); // Sunrise
-    else if (hour >= 8 && hour < 17) setBgGradient('from-sky-300 via-blue-200 to-blue-400'); // Midday
-    else if (hour >= 17 && hour < 20) setBgGradient('from-orange-400 via-red-300 to-indigo-900'); // Sunset
-    else setBgGradient('from-slate-900 via-indigo-950 to-black'); // Night
+    setPlants(generatePlants(10));
   }, []);
 
   const handleWater = () => {
@@ -346,6 +362,59 @@ export default function App() {
                       <circle cx="4" cy="-25" r="1.5" fill="white" opacity="0.6" />
                     </g>
                   )}
+
+                  {plant.type === 'bonsai' && (
+                    <g transform={`translate(${plant.x}, 0) rotate(${plant.rotation})`}>
+                      {/* Trunk */}
+                      <path 
+                        d="M-4,0 L-6,-30 Q-10,-40 0,-45 L4,-45 Q15,-40 6,-30 L4,0 Z" 
+                        fill="#5d4037" 
+                      />
+                      {/* Foliage Clusters */}
+                      {[ {dx: 0, dy: -45}, {dx: -10, dy: -35}, {dx: 12, dy: -38} ].map((cluster, ci) => (
+                        <motion.g key={ci} transform={`translate(${cluster.dx}, ${cluster.dy})`}>
+                          {Array.from({ length: 6 }).map((_, li) => (
+                            <ellipse
+                              key={li}
+                              rx={8}
+                              ry={12}
+                              fill={plant.color}
+                              transform={`rotate(${li * 60})`}
+                              className="opacity-90"
+                            />
+                          ))}
+                        </motion.g>
+                      ))}
+                    </g>
+                  )}
+
+                  {plant.type === 'vine' && (
+                    <g transform={`translate(${plant.x}, -${plant.y - 425 || 0}) rotate(${plant.rotation})`}>
+                      <motion.path
+                        d={`M0,0 Q10,20 0,60 T10,120`}
+                        fill="none"
+                        stroke={plant.color}
+                        strokeWidth="2"
+                        strokeDasharray="4 2"
+                        animate={{ d: [
+                          `M0,0 Q10,20 0,60 T10,120`,
+                          `M0,0 Q-10,25 5,65 T-5,125`,
+                          `M0,0 Q10,20 0,60 T10,120`
+                        ]}}
+                        transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+                      />
+                      {Array.from({ length: 5 }).map((_, vi) => (
+                        <motion.path
+                          key={vi}
+                          d="M0,0 Q5,5 10,0"
+                          fill={plant.color}
+                          transform={`translate(${vi % 2 === 0 ? 2 : -2}, ${vi * 25 + 10}) rotate(${vi % 2 === 0 ? 45 : -45})`}
+                          animate={{ scale: [1, 1.1, 1] }}
+                          transition={{ duration: 3, repeat: Infinity, delay: vi * 0.2 }}
+                        />
+                      ))}
+                    </g>
+                  )}
                 </motion.g>
               ))}
             </g>
@@ -358,6 +427,19 @@ export default function App() {
 
         {/* Action Buttons */}
         <div className="absolute -right-20 top-1/2 -translate-y-1/2 flex flex-col gap-4">
+          <div className="flex flex-col items-center gap-2 mb-4 bg-white/10 p-2 rounded-xl backdrop-blur-sm border border-white/10 group/slider">
+             <div className="text-[8px] text-white/50 uppercase tracking-tighter">Day / Night</div>
+             <input 
+                type="range" 
+                min="0" 
+                max="23" 
+                value={hour} 
+                onChange={(e) => setOverrideHour(parseInt(e.target.value))}
+                className="h-24 appearance-none bg-white/10 rounded-full w-1 accent-white cursor-pointer vertical-slider"
+                style={{ WebkitAppearance: 'slider-vertical' } as any}
+             />
+             <div className="text-[10px] text-white font-mono">{hour.toString().padStart(2, '0')}:00</div>
+          </div>
           <ControlButton 
             icon={<Droplets size={20} />} 
             label="Water" 
